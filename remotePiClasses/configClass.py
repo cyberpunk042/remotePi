@@ -1,0 +1,5 @@
+# Debug flag
+DEBUG_ENABLED = 0
+
+DISTANCE_THRESHOLD = 10
+

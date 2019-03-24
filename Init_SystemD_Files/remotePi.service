@@ -1,0 +1,16 @@
+[Unit]
+Description=Remote Pi
+ 
+[Service]
+Type=simple
+#StandardInput=socket
+StandardError=journal
+ExecStart=/usr/bin/python3 /home/pi/remotePi/remotePiMain.py
+ExecStop=/bin/kill $(cat /home/pi/remotePi/remotePi.pid)
+PIDFile=/home/pi/remotePi/remotePi.pid
+Restart=always
+RestartSec=1
+#Restart=on-abort
+ 
+[Install]
+WantedBy=multi-user.target

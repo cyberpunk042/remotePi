@@ -1,0 +1,15 @@
+####################
+###### Setup #######
+####################
+
+# After file (More here: https://wiki.archlinux.org/index.php/systemd)
+sudo systemctl daemon-reload
+sudo systemctl enable remotePi.service
+sudo chmod 644 /lib/systemd/system/remotePi.service
+sudo chmod +x /home/pi/remotePi/remotePiMain.py
+sudo systemctl daemon-reload
+sudo systemctl enable remotePi.service
+sudo systemctl start remotePi.service
+
+## watch with ## 
+journalctl journalctl -u remotePi.service --follow

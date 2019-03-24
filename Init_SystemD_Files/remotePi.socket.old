@@ -1,0 +1,10 @@
+[Unit]
+Description=RemotePi Socket
+PartOf=remotePi.service
+
+[Socket]
+ListenStream=0.0.0.0:10000
+Accept=yes
+
+[Install]
+WantedBy=sockets.target

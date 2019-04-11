@@ -15,14 +15,14 @@ leftSideForward=11
 rightSidePin=18
 rightSideForward=13
 
-frequence=50 #in hz
+frequence=100 #in hz
 
 #PWM dc_speeds
 dc_stop = 0
-dc_speed1 = 10
-dc_speed2 = 25
+dc_speed1 = 30
+dc_speed2 = 35
 dc_speed3 = 45
-dc_speed4 = 65
+dc_speed4 = 75
 dc_speed5 = 80
 dc_speed7 = 90
 dc_speed9 = 100

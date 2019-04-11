@@ -26,7 +26,7 @@ sock.setblocking(0)
 
 
 # Bind the socket to the port
-server_address = ('0.0.0.0', 10000)
+server_address = ('0.0.0.0', 9999)
 logging.info('starting up on (%s,%s)', server_address[0], server_address[1])
 sock.bind(server_address)
 
@@ -112,6 +112,10 @@ async def thread_direction_controller(sharedProperties):
                     sharedProperties.connection.close()
                     sharedProperties.connection = None
                     ColorModule.turnOffBlueLed() # Turn off connection led
+                
+                # Client is killing the instance
+                elif len(data) == 5 and data == "reset":
+                    sharedProperties.endOfProgram = 1 
                 else:
                     # One joystick at a time
                     if (len(data) == 2 and data[0] == "S"):

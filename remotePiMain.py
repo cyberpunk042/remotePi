@@ -288,7 +288,7 @@ async def thread_distance_calculator(sharedProperties):
         sharedProperties.frontalDistance = DistanceCaptor.distanceFront()
         if Config.DEBUG_ENABLED:
             logging.info('frontalDistance: %s', sharedProperties.frontalDistance)
-        if (sharedProperties.frontalDistance < Config.DISTANCE_THRESHOLD):
+        if (sharedProperties.frontalDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedLeft() / 10) or sharedProperties.frontalDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedRight() / 10)):
             sharedProperties.forceStopForward = 1
             logging.info('Proximity frontal alert !!')
             if Config.DEBUG_ENABLED:
@@ -303,7 +303,7 @@ async def thread_distance_calculator(sharedProperties):
         sharedProperties.rearDistance = DistanceCaptor.distanceRear()
         if Config.DEBUG_ENABLED:
             logging.info('rearDistance: %s', sharedProperties.rearDistance)
-        if (sharedProperties.rearDistance < Config.DISTANCE_THRESHOLD):
+        if (sharedProperties.rearDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedLeft() / 10) or sharedProperties.rearDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedRight() / 10)):
             sharedProperties.forceStopBackward = 1
             logging.info('Proximity dorsal alert !!')
             if Config.DEBUG_ENABLED:

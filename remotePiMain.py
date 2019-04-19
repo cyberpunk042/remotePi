@@ -312,6 +312,10 @@ async def thread_distance_calculator(sharedProperties):
             sharedProperties.forceStopBackward = 0
             if Config.DEBUG_ENABLED:
                 logging.info('sharedProperties.forceStopBackward2: %s', sharedProperties.forceStopBackward)
+        
+        
+        
+        
         """ 
         await asyncio.sleep(0.01)
 

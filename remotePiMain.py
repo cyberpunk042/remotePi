@@ -35,9 +35,9 @@ sock.listen(SYSTEMD_FIRST_SOCKET_FD)
 
 
 #GPIO Mode (BOARD / BCM)
-GPIO.setmode(GPIO.BOARD)
+GPIO.setmode(GPIO.BCM)
 
-RESET_TRIGGER_PIN=40
+RESET_TRIGGER_PIN=21
 GPIO.setup(RESET_TRIGGER_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
  
 #Disable warnings
@@ -285,7 +285,7 @@ async def thread_direction_controller(sharedProperties):
 async def thread_distance_calculator(sharedProperties):
     while not sharedProperties.endOfProgram:
     
-        sharedProperties.frontalDistance = DistanceCaptor.distanceFront()
+        """ sharedProperties.frontalDistance = DistanceCaptor.distanceFront()
         if Config.DEBUG_ENABLED:
             logging.info('frontalDistance: %s', sharedProperties.frontalDistance)
         if (sharedProperties.frontalDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedLeft() / 10) or sharedProperties.frontalDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedRight() / 10)):
@@ -312,7 +312,7 @@ async def thread_distance_calculator(sharedProperties):
             sharedProperties.forceStopBackward = 0
             if Config.DEBUG_ENABLED:
                 logging.info('sharedProperties.forceStopBackward2: %s', sharedProperties.forceStopBackward)
-        
+         """
         
         
         

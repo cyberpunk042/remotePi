@@ -5,20 +5,20 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 #GPIO Mode (BOARD / BCM)
-GPIO.setmode(GPIO.BOARD)
+GPIO.setmode(GPIO.BCM)
 
 #Disable warnings
 GPIO.setwarnings(False)
  
 #Choice of PINS for ultrasonic
-PIN_TRIGGER_FRONT = 19
-PIN_ECHO_FRONT = 22
+PIN_TRIGGER_FRONT = 9
+PIN_ECHO_FRONT = 8
 
-PIN_TRIGGER_REAR = 21
-PIN_ECHO_REAR = 24
+PIN_TRIGGER_REAR = 10
+PIN_ECHO_REAR = 25
 
-PIN_TRIGGER_FRONT_TOP = 23
-PIN_ECHO_FRONT_TOP = 26
+""" PIN_TRIGGER_FRONT_TOP = 23
+PIN_ECHO_FRONT_TOP = 26 """
 
 #Ultrasonic GPIO direction (IN / OUT)
 GPIO.setup(PIN_TRIGGER_REAR, GPIO.OUT)
@@ -27,8 +27,8 @@ GPIO.setup(PIN_ECHO_REAR, GPIO.IN)
 GPIO.setup(PIN_TRIGGER_FRONT, GPIO.OUT)
 GPIO.setup(PIN_ECHO_FRONT, GPIO.IN)
 
-GPIO.setup(PIN_TRIGGER_FRONT_TOP, GPIO.OUT)
-GPIO.setup(PIN_ECHO_FRONT_TOP, GPIO.IN)
+""" GPIO.setup(PIN_TRIGGER_FRONT_TOP, GPIO.OUT)
+GPIO.setup(PIN_ECHO_FRONT_TOP, GPIO.IN) """
 
 def distanceRear():
     # set Trigger to HIGH
@@ -87,7 +87,7 @@ def distanceFront():
 
 
 
-def distanceFrontTop():
+""" def distanceFrontTop():
     # set Trigger to HIGH
     GPIO.output(PIN_TRIGGER_FRONT_TOP, True)
  
@@ -113,4 +113,4 @@ def distanceFrontTop():
     distance = (TimeElapsed * 34300) / 2
  
     return distance
-
+ """

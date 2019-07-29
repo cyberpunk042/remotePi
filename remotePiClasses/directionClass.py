@@ -4,22 +4,24 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 #GPIO Mode (BOARD / BCM)
-GPIO.setmode(GPIO.BOARD)
+GPIO.setmode(GPIO.BCM)
  
 #Disable warnings
 GPIO.setwarnings(False)
 
 #Choice of PINS for direction system
-leftSidePin=16
-leftSideForward=11
-rightSidePin=18
-rightSideForward=13
+leftSidePin=24
+leftSideForward=27
+leftSideForwardReversePin=22
+rightSidePin=23
+rightSideForward=17
+rightSideForwardReversePin=4
 
 # The lowest frequence might be ideal to reduce consumption ?
 # Not sure:  Generally 20kHz is a good choice for PWM frequency because it is well beyond of the dynamic range of motors and just beyond the range of human hearing
 # http://hades.mech.northwestern.edu/index.php/Driving_a_high_current_DC_Motor_using_an_H-bridge
-#frequence=10 #in hz 
-frequence=20000 #in hz 
+frequence=10 #in hz 
+#frequence=20000 #in hz 
 
 transitionSpeedIncrement = 1
 
@@ -29,24 +31,28 @@ dc_speed1 = 40
 dc_speed2 = 45
 dc_speed3 = 50
 dc_speed4 = 75
-dc_speed5 = 80
-dc_speed6 = 85
-dc_speed7 = 90
+dc_speed5 = 85
+dc_speed6 = 100
+""" dc_speed7 = 90
 dc_speed8 = 95
-dc_speed9 = 100
+dc_speed9 = 100 """
 GPIO.setup(leftSidePin, GPIO.OUT)
 leftSide = GPIO.PWM(leftSidePin, frequence)
 GPIO.setup(leftSideForward, GPIO.OUT)
+GPIO.setup(leftSideForwardReversePin, GPIO.OUT)
 
 GPIO.setup(rightSidePin, GPIO.OUT)
 rightSide = GPIO.PWM(rightSidePin, frequence)
 GPIO.setup(rightSideForward, GPIO.OUT)
+GPIO.setup(rightSideForwardReversePin, GPIO.OUT)
 
 #Initial state
 rightSide.stop()
 GPIO.output(leftSideForward , 0)
+GPIO.output(leftSideForwardReversePin , 1)
 leftSide.stop()
 GPIO.output(rightSideForward, 0)
+GPIO.output(rightSideForwardReversePin, 1)
 
 currentDirectionLeftSide = 'none'
 currentDirectionRightSide = 'none'
@@ -74,12 +80,12 @@ def get_transition_speed(side, power, direction):
    global currentDirectionLeftSide
    transitionSpeed = 0
 
-   if power == "9":
+   """    if power == "9":
       desiredSpeed = dc_speed9
    if power == "8":
       desiredSpeed = dc_speed8
    if power == "7":
-      desiredSpeed = dc_speed7
+      desiredSpeed = dc_speed7 """
    if power == "6":
       desiredSpeed = dc_speed6
    if power == "5":
@@ -157,6 +163,7 @@ def left_side_forward(power):
     global currentDirectionLeftSide
     currentDirectionLeftSide = 'forward'
     GPIO.output(leftSideForward, 1)
+    GPIO.output(leftSideForwardReversePin , 0)
     clearSavedDirection()
 
 def right_side_forward(power):
@@ -166,6 +173,7 @@ def right_side_forward(power):
     global currentDirectionRightSide
     currentDirectionRightSide = 'forward'
     GPIO.output(rightSideForward, 1)
+    GPIO.output(rightSideForwardReversePin, 0)
     clearSavedDirection()
 
 def left_side_backward(power):
@@ -175,6 +183,7 @@ def left_side_backward(power):
     global currentDirectionLeftSide
     currentDirectionLeftSide = 'backward'
     GPIO.output(leftSideForward, 0)
+    GPIO.output(leftSideForwardReversePin , 1)
     clearSavedDirection()
 
 def right_side_backward(power):
@@ -184,6 +193,7 @@ def right_side_backward(power):
     global currentDirectionRightSide
     currentDirectionRightSide = 'backward'
     GPIO.output(rightSideForward, 0)
+    GPIO.output(rightSideForwardReversePin, 1)
     clearSavedDirection()
 
 def stopLeft():
@@ -193,6 +203,7 @@ def stopLeft():
     currentDirectionLeftSide = 'none'
     leftSide.stop()
     GPIO.output(leftSideForward , 0)
+    GPIO.output(leftSideForwardReversePin , 1)
     # Since stop can be called by the poximity alert itself, it will not clear the saved direction
 
 def stopRight():
@@ -202,6 +213,7 @@ def stopRight():
     currentDirectionRightSide = 'none'
     rightSide.stop()
     GPIO.output(rightSideForward, 0)
+    GPIO.output(rightSideForwardReversePin, 1)
     # Since stop can be called by the poximity alert itself, it will not clear the saved direction
 
 def saveDirection():

@@ -85,33 +85,6 @@ async def thread_direction_controller(sharedProperties):
         DirectionSystem.update_motors_periodic()
         if sharedProperties.connection is not None:
             try:  
-                # In case someone blocked the way temporary we have to be able to detect there is no longer obstuction and keep going forward
-                if sharedProperties.forceStopForward == 0 and (DirectionSystem.lastSavedDirectionLeftSide == 'forward' or  DirectionSystem.lastSavedDirectionRightSide == 'forward'):
-                    DirectionSystem.restoreDirection()
-                    if Config.DEBUG_ENABLED:
-                        logging.info('Restored direction - Current save direction : (L:%s,R:%s)', DirectionSystem.lastSavedDirectionLeftSide, DirectionSystem.lastSavedDirectionRightSide)
-                if sharedProperties.forceStopBackward == 0 and (DirectionSystem.lastSavedDirectionLeftSide == 'backward' or  DirectionSystem.lastSavedDirectionRightSide == 'backward'):
-                    DirectionSystem.restoreDirection()
-                    if Config.DEBUG_ENABLED:
-                        logging.info('Restored direction - Current save direction : (L:%s,R:%s)', DirectionSystem.lastSavedDirectionLeftSide, DirectionSystem.lastSavedDirectionRightSide)
-                        
-                # In the eventuality that there is a fontral poximity alert
-                if sharedProperties.forceStopForward == 1 and (DirectionSystem.currentDirectionLeftSide == 'forward' or  DirectionSystem.currentDirectionRightSide == 'forward'):
-                    DirectionSystem.saveDirection()
-                    DirectionSystem.stopLeft()
-                    DirectionSystem.stopRight()
-                    if Config.DEBUG_ENABLED:
-                        logging.info('Saved direction: (L:%s,R:%s)', DirectionSystem.currentDirectionLeftSide, DirectionSystem.currentDirectionRightSide)
-
-                # In the eventuality that there is a dorsal poximity alert
-                if sharedProperties.forceStopBackward == 1 and (DirectionSystem.currentDirectionLeftSide == 'backward' or  DirectionSystem.currentDirectionRightSide == 'backward'):
-                    DirectionSystem.saveDirection()
-                    DirectionSystem.stopLeft()
-                    DirectionSystem.stopRight()
-                    if Config.DEBUG_ENABLED:
-                        logging.info('Saved direction: (L:%s,R:%s)', DirectionSystem.currentDirectionLeftSide, DirectionSystem.currentDirectionRightSide)
-                    
-
                 data = sharedProperties.connection.recv(2048).decode('utf-8') # 2048 or 4096 ?
                 if Config.DEBUG_ENABLED:
                     logging.info('data: %s', data)
@@ -126,162 +99,15 @@ async def thread_direction_controller(sharedProperties):
                 elif len(data) == 5 and data == "reset":
                     sharedProperties.endOfProgram = 1 
                 else:
-                    # One joystick at a time
-                    if (len(data) == 2 and data[0] == "S"):
-                        if (data[1] == "L"):
-                            DirectionSystem.stopLeft()
-                            if DirectionSystem.lastSavedDirectionLeftSide != 'none':
-                                DirectionSystem.lastSavedDirectionLeftSide = 'none'
-                        elif (data[1] == "R"):
-                            DirectionSystem.stopRight()
-                            if DirectionSystem.lastSavedDirectionRightSide != 'none':
-                                DirectionSystem.lastSavedDirectionRightSide = 'none'
-                    # Two joystick at a time
-                    elif(len(data) == 4 and data[0] == "S" and data[2] == "S"):
-                        if (data[1] == "L"):
-                            DirectionSystem.stopLeft()
-                            if DirectionSystem.lastSavedDirectionLeftSide != 'none':
-                                DirectionSystem.lastSavedDirectionLeftSide = 'none'
-                        if (data[1] == "R"):
-                            DirectionSystem.stopRight()
-                            if DirectionSystem.lastSavedDirectionRightSide != 'none':
-                                DirectionSystem.lastSavedDirectionRightSide = 'none'
-                        if (data[3] == "L"):
-                            DirectionSystem.stopLeft()
-                            if DirectionSystem.lastSavedDirectionLeftSide != 'none':
-                                DirectionSystem.lastSavedDirectionLeftSide = 'none'
-                        if (data[3] == "R"):
-                            DirectionSystem.stopRight()
-                            if DirectionSystem.lastSavedDirectionRightSide != 'none':
-                                DirectionSystem.lastSavedDirectionRightSide = 'none'
+                    # Joystick float commands: L:<float> or R:<float>
+                    if data.startswith("L:"):
+                        value = data[2:]
+                        DirectionSystem.set_speed_left(value)
+                    elif data.startswith("R:"):
+                        value = data[2:]
+                        DirectionSystem.set_speed_right(value)
                     else:
-                        # It is not a stop command, this mean it is a forward/backward command
-
-                        # Data length indicate that it is one joystick at a time
-                        if (len(data) == 3):
-                            if (data[0] == "L" and data[1] == "F"):
-                                if sharedProperties.forceStopForward != 1:
-                                    DirectionSystem.left_side_forward(data[2])
-                                elif DirectionSystem.lastSavedDirectionLeftSide != 'none':
-                                    DirectionSystem.lastSavedDirectionLeftSide = 'forward'
-                                    DirectionSystem.stopLeft()
-                                else:
-                                    # Make sure it still record the ordered direction
-                                    DirectionSystem.currentDirectionLeftSide = 'forward' 
-
-                            elif (data[0] == "L" and data[1] == "B"):
-                                if sharedProperties.forceStopBackward != 1:
-                                    DirectionSystem.left_side_backward(data[2])
-                                elif DirectionSystem.lastSavedDirectionLeftSide != 'none':
-                                    DirectionSystem.lastSavedDirectionLeftSide = 'backward'
-                                    DirectionSystem.stopLeft()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionLeftSide = 'backward' 
-
-                            elif (data[0] == "R" and data[1] == "F"):
-                                if sharedProperties.forceStopForward != 1:
-                                    DirectionSystem.right_side_forward(data[2])
-                                elif DirectionSystem.lastSavedDirectionRightSide != 'none':
-                                    DirectionSystem.lastSavedDirectionRightSide = 'forward'
-                                    DirectionSystem.stopRight()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionRightSide = 'forward' 
-
-                            elif (data[0] == "R" and data[1] == "B"):
-                                if sharedProperties.forceStopBackward != 1:
-                                    DirectionSystem.right_side_backward(data[2])
-                                elif DirectionSystem.lastSavedDirectionRightSide != 'none':
-                                    DirectionSystem.lastSavedDirectionRightSide = 'backward'
-                                    DirectionSystem.stopRight()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionRightSide = 'backward' 
-                                
-                        # Data length indicate that it is two joystick at a time
-                        if (len(data) == 6):
-                            if (data[0] == "L" and data[1] == "F"):
-                                if sharedProperties.forceStopForward != 1:
-                                    DirectionSystem.left_side_forward(data[2])
-                                elif DirectionSystem.lastSavedDirectionLeftSide != 'none':
-                                    DirectionSystem.lastSavedDirectionLeftSide = 'forward'
-                                    DirectionSystem.stopLeft()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionLeftSide = 'forward' 
-
-                            elif (data[0] == "L" and data[1] == "B"):
-                                if sharedProperties.forceStopBackward != 1:
-                                    DirectionSystem.left_side_backward(data[2])
-                                elif DirectionSystem.lastSavedDirectionLeftSide != 'none':
-                                    DirectionSystem.lastSavedDirectionLeftSide = 'backward'
-                                    DirectionSystem.stopLeft()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionLeftSide = 'backward' 
-
-                            elif (data[0] == "R" and data[1] == "F"):
-                                if sharedProperties.forceStopForward != 1:
-                                    DirectionSystem.right_side_forward(data[2])
-                                elif DirectionSystem.lastSavedDirectionRightSide != 'none':
-                                    DirectionSystem.lastSavedDirectionRightSide = 'forward'
-                                    DirectionSystem.stopRight()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionRightSide = 'forward' 
-
-                            elif (data[0] == "R" and data[1] == "B"):
-                                if sharedProperties.forceStopBackward != 1:
-                                    DirectionSystem.right_side_backward(data[2])
-                                elif DirectionSystem.lastSavedDirectionRightSide != 'none':
-                                    DirectionSystem.lastSavedDirectionRightSide = 'backward'
-                                    DirectionSystem.stopRight()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionRightSide = 'backward' 
-
-                            
-                            if (data[3] == "L" and data[4] == "F"):
-                                if sharedProperties.forceStopForward != 1:
-                                    DirectionSystem.left_side_forward(data[5])
-                                elif DirectionSystem.lastSavedDirectionLeftSide != 'none':
-                                    DirectionSystem.lastSavedDirectionLeftSide = 'forward'
-                                    DirectionSystem.stopLeft()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionLeftSide = 'forward' 
-
-                            elif (data[3] == "L" and data[4] == "B"):
-                                if sharedProperties.forceStopBackward != 1:
-                                    DirectionSystem.left_side_backward(data[5])
-                                elif DirectionSystem.lastSavedDirectionLeftSide != 'none':
-                                    DirectionSystem.lastSavedDirectionLeftSide = 'backward'
-                                    DirectionSystem.stopLeft()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionLeftSide = 'backward' 
-
-                            elif (data[3] == "R" and data[4] == "F"):
-                                if sharedProperties.forceStopForward != 1:
-                                    DirectionSystem.right_side_forward(data[5])
-                                elif DirectionSystem.lastSavedDirectionRightSide != 'none':
-                                    DirectionSystem.lastSavedDirectionRightSide = 'forward'
-                                    DirectionSystem.stopRight()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionRightSide = 'forward' 
-                                    
-                            elif (data[3] == "R" and data[4] == "B"):
-                                if sharedProperties.forceStopBackward != 1:
-                                    DirectionSystem.right_side_backward(data[5])
-                                elif DirectionSystem.lastSavedDirectionRightSide != 'none':
-                                    DirectionSystem.lastSavedDirectionRightSide = 'backward'
-                                    DirectionSystem.stopRight()
-                                else:
-                                    # Make sure it still record the desired new
-                                    DirectionSystem.currentDirectionRightSide = 'backward' 
-
+                        pass
                     
             except IOError as e:  # and here it is handeled
                 pass
@@ -289,50 +115,6 @@ async def thread_direction_controller(sharedProperties):
         else:
             await asyncio.sleep(1)
     
-
-    
-async def thread_distance_calculator(sharedProperties):
-    while not sharedProperties.endOfProgram:
-    
-        """ sharedProperties.frontalDistance = DistanceCaptor.distanceFront()
-        if Config.DEBUG_ENABLED:
-            logging.info('frontalDistance: %s', sharedProperties.frontalDistance)
-        if (sharedProperties.frontalDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedLeft() / 10) or sharedProperties.frontalDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedRight() / 10)):
-            sharedProperties.forceStopForward = 1
-            logging.info('Proximity frontal alert !!')
-            if Config.DEBUG_ENABLED:
-                logging.info('sharedProperties.forceStopForward1: %s', sharedProperties.forceStopForward)
-        else:
-            sharedProperties.forceStopForward = 0
-            if Config.DEBUG_ENABLED:
-                logging.info('sharedProperties.forceStopForward2: %s', sharedProperties.forceStopForward)
-            
-        await asyncio.sleep(0.1)
-
-        sharedProperties.rearDistance = DistanceCaptor.distanceRear()
-        if Config.DEBUG_ENABLED:
-            logging.info('rearDistance: %s', sharedProperties.rearDistance)
-        if (sharedProperties.rearDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedLeft() / 10) or sharedProperties.rearDistance < (Config.DISTANCE_THRESHOLD * DirectionSystem.getCurrentTransitionSpeedRight() / 10)):
-            sharedProperties.forceStopBackward = 1
-            logging.info('Proximity dorsal alert !!')
-            if Config.DEBUG_ENABLED:
-                logging.info('sharedProperties.forceStopBackward1: %s', sharedProperties.forceStopBackward)
-        else:
-            sharedProperties.forceStopBackward = 0
-            if Config.DEBUG_ENABLED:
-                logging.info('sharedProperties.forceStopBackward2: %s', sharedProperties.forceStopBackward)
-         """
-        
-        
-        
-        """ 
-        await asyncio.sleep(0.01)
-
-        sharedProperties.objectDetection = DistanceCaptor.distanceFrontTop()
-        if Config.DEBUG_ENABLED:
-            logging.info('objectDetection: %s', sharedProperties.objectDetection)
-             """
-        await asyncio.sleep(1)
 
 async def thread_detect_reset_switch(sharedProperties):
     while not sharedProperties.endOfProgram:
@@ -374,7 +156,7 @@ async def robotProgram():
     
     # Run all thread and wait for them to complete (passing in sharedProperties)
     #await asyncio.gather(thread_distance_calculator(sharedProperties), thread_direction_controller(sharedProperties), thread_screen_controller(sharedProperties), thread_sound_controller(sharedProperties))
-    await asyncio.gather(thread_socket_server(sharedProperties), thread_direction_controller(sharedProperties), thread_detect_reset_switch(sharedProperties), thread_distance_calculator(sharedProperties))
+    await asyncio.gather(thread_socket_server(sharedProperties), thread_direction_controller(sharedProperties), thread_detect_reset_switch(sharedProperties))
     #await asyncio.gather(thread_socket_server(sharedProperties), thread_direction_controller(sharedProperties))
     
     # Once both are complete print done

@@ -36,9 +36,10 @@ def map_power_to_duty(power):
 
 
 def set_speed_left(power):
+    speed = map_power_to_duty(power)
     if Config.DEBUG_ENABLED:
         logging.info('power left: %s', power)
-    speed = map_power_to_duty(power)
+        logging.info('speed left: %s', speed)
     left_motor.set_target_speed(speed)
     # left_motor.update_speed()  # Now handled by periodic update
 

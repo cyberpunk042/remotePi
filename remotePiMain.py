@@ -87,27 +87,22 @@ async def thread_direction_controller(sharedProperties):
             try:  
                 data = sharedProperties.connection.recv(2048).decode('utf-8') # 2048 or 4096 ?
                 if Config.DEBUG_ENABLED:
-                    logging.info('data: %s', data)
+                    logging.info('raw data: %r', data)
 
-                # End of connection from client
-                if not data:
-                    sharedProperties.connection.close()
-                    sharedProperties.connection = None
-                    # ColorModule.turnOffBlueLed() # Turn off connection led
-                
-                # Client is killing the instance
-                elif len(data) == 5 and data == "reset":
-                    sharedProperties.endOfProgram = 1 
-                else:
-                    # Joystick float commands: L:<float> or R:<float>
-                    if data.startswith("L:"):
-                        value = data[2:]
+                # Split and process each line
+                for line in data.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if line.startswith("L:"):
+                        value = line[2:]
                         DirectionSystem.set_speed_left(value)
-                    elif data.startswith("R:"):
-                        value = data[2:]
+                    elif line.startswith("R:"):
+                        value = line[2:]
                         DirectionSystem.set_speed_right(value)
-                    else:
-                        pass
+                    elif line == "reset":
+                        sharedProperties.endOfProgram = 1
+                    # (other command handling as needed)
                     
             except IOError as e:  # and here it is handeled
                 pass

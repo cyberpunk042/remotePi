@@ -28,11 +28,12 @@ right_motor.setup()
 # Power mapping: joystick value (float or string) in [-1, 1] to duty cycle [-100, 100]
 def map_power_to_duty(power):
     try:
-        p = float(power)
+        s = str(power).strip()
+        p = float(s)
         p = max(-1.0, min(1.0, p))  # Clamp to [-1, 1]
         duty = int(p * 100)
         if Config.DEBUG_ENABLED:
-            logging.info(f"map_power_to_duty: input={power}, clamped={p}, duty={duty}")
+            logging.info(f"map_power_to_duty: input={power}, stripped={s}, clamped={p}, duty={duty}")
         return duty
     except Exception as e:
         if Config.DEBUG_ENABLED:

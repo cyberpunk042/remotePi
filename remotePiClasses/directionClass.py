@@ -30,8 +30,13 @@ def map_power_to_duty(power):
     try:
         p = float(power)
         p = max(-1.0, min(1.0, p))  # Clamp to [-1, 1]
-        return int(p * 100)
-    except Exception:
+        duty = int(p * 100)
+        if Config.DEBUG_ENABLED:
+            logging.info(f"map_power_to_duty: input={power}, clamped={p}, duty={duty}")
+        return duty
+    except Exception as e:
+        if Config.DEBUG_ENABLED:
+            logging.error(f"map_power_to_duty error: {e}, input={power}")
         return 0
 
 

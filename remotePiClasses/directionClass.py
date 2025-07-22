@@ -35,22 +35,18 @@ def map_power_to_duty(power):
         return 0
 
 
-def set_speed_left(power, direction):
+def set_speed_left(power):
     if Config.DEBUG_ENABLED:
         logging.info('power left: %s', power)
     speed = map_power_to_duty(power)
-    if direction == 'backward':
-        speed = -speed
     left_motor.set_target_speed(speed)
     # left_motor.update_speed()  # Now handled by periodic update
 
 
-def set_speed_right(power, direction):
+def set_speed_right(power):
     if Config.DEBUG_ENABLED:
         logging.info('power right: %s', power)
     speed = map_power_to_duty(power)
-    if direction == 'backward':
-        speed = -speed
     right_motor.set_target_speed(speed)
     # right_motor.update_speed()  # Now handled by periodic update
 

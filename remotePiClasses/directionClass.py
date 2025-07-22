@@ -135,16 +135,12 @@ def apply_transition_offset(curTransitionSpeed, desiredSpeed):
       return desiredSpeed
    
 
-# Power mapping: joystick value (string) to duty cycle (quadratic for finer low-speed control)
+# Power mapping: joystick value (float or string) in [-1, 1] to duty cycle [-100, 100]
 def map_power_to_duty(power):
     try:
-        p = int(power)
-        if p <= 0:
-            return 0
-        elif p >= 7:
-            return 100
-        else:
-            return min(100, int((p/7)**2 * 100))
+        p = float(power)
+        p = max(-1.0, min(1.0, p))  # Clamp to [-1, 1]
+        return int(p * 100)
     except Exception:
         return 0
 

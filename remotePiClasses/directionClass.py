@@ -1,6 +1,7 @@
 import RPi.GPIO as GPIO
 import remotePiClasses.configClass as Config
 import logging
+from remotePiClasses.bts7960_motor import BTS7960Motor
 logging.basicConfig(level=logging.INFO)
 
 #GPIO Mode (BOARD / BCM)
@@ -36,23 +37,23 @@ dc_speed6 = 100
 """ dc_speed7 = 90
 dc_speed8 = 95
 dc_speed9 = 100 """
-GPIO.setup(leftSidePin, GPIO.OUT)
-leftSide = GPIO.PWM(leftSidePin, frequence)
-GPIO.setup(leftSideForward, GPIO.OUT)
-GPIO.setup(leftSideForwardReversePin, GPIO.OUT)
 
-GPIO.setup(rightSidePin, GPIO.OUT)
-rightSide = GPIO.PWM(rightSidePin, frequence)
-GPIO.setup(rightSideForward, GPIO.OUT)
-GPIO.setup(rightSideForwardReversePin, GPIO.OUT)
+# Motor pin assignments (update as needed for your wiring)
+LEFT_PWM_RIGHT = 24
+LEFT_PWM_LEFT = 27
+RIGHT_PWM_RIGHT = 23
+RIGHT_PWM_LEFT = 17
+PWM_FREQ = 1000
 
-#Initial state
-rightSide.stop()
-GPIO.output(leftSideForward , 0)
-GPIO.output(leftSideForwardReversePin , 1)
-leftSide.stop()
-GPIO.output(rightSideForward, 0)
-GPIO.output(rightSideForwardReversePin, 1)
+# Create motor instances
+left_motor = BTS7960Motor(pwm_right_pin=LEFT_PWM_RIGHT, pwm_left_pin=LEFT_PWM_LEFT, freq_hz=PWM_FREQ)
+right_motor = BTS7960Motor(pwm_right_pin=RIGHT_PWM_RIGHT, pwm_left_pin=RIGHT_PWM_LEFT, freq_hz=PWM_FREQ)
+
+# Setup motors
+left_motor.setup()
+right_motor.setup()
+
+# Remove all direct GPIO and PWM setup for motors below this point
 
 currentDirectionLeftSide = 'none'
 currentDirectionRightSide = 'none'
@@ -134,87 +135,92 @@ def apply_transition_offset(curTransitionSpeed, desiredSpeed):
       return desiredSpeed
    
 
+# Power mapping: joystick value (string) to duty cycle (quadratic for finer low-speed control)
+def map_power_to_duty(power):
+    try:
+        p = int(power)
+        if p <= 0:
+            return 0
+        elif p >= 7:
+            return 100
+        else:
+            return min(100, int((p/7)**2 * 100))
+    except Exception:
+        return 0
+
+
 def set_speed_left(power, direction):
-   if Config.DEBUG_ENABLED:
-      logging.info('power left: %s', power)
-
-   global currentPowerLeftSide
-   currentPowerLeftSide = power
-
-   transitionSpeed = get_transition_speed("left", power, direction)
-   leftSide.start(transitionSpeed)
+    if Config.DEBUG_ENABLED:
+        logging.info('power left: %s', power)
+    speed = map_power_to_duty(power)
+    if direction == 'backward':
+        speed = -speed
+    left_motor.set_target_speed(speed)
+    # left_motor.update_speed()  # Now handled by periodic update
 
 
 def set_speed_right(power, direction):
-   if Config.DEBUG_ENABLED:
-      logging.info('power right: %s', power)
-
-   global currentPowerRightSide
-   currentPowerRightSide = power
-
-   transitionSpeed = get_transition_speed("right", power, direction)
-   rightSide.start(transitionSpeed)
+    if Config.DEBUG_ENABLED:
+        logging.info('power right: %s', power)
+    speed = map_power_to_duty(power)
+    if direction == 'backward':
+        speed = -speed
+    right_motor.set_target_speed(speed)
+    # right_motor.update_speed()  # Now handled by periodic update
 
 
 def left_side_forward(power):
     if Config.DEBUG_ENABLED:
-      logging.info('left_side_forward')
+        logging.info('left_side_forward')
     set_speed_left(power, 'forward')
     global currentDirectionLeftSide
     currentDirectionLeftSide = 'forward'
-    GPIO.output(leftSideForward, 1)
-    GPIO.output(leftSideForwardReversePin , 0)
     clearSavedDirection()
+
 
 def right_side_forward(power):
     if Config.DEBUG_ENABLED:
-      logging.info('right_side_forward')
+        logging.info('right_side_forward')
     set_speed_right(power, 'forward')
     global currentDirectionRightSide
     currentDirectionRightSide = 'forward'
-    GPIO.output(rightSideForward, 1)
-    GPIO.output(rightSideForwardReversePin, 0)
     clearSavedDirection()
+
 
 def left_side_backward(power):
     if Config.DEBUG_ENABLED:
-      logging.info('left_side_backward')
+        logging.info('left_side_backward')
     set_speed_left(power, 'backward')
     global currentDirectionLeftSide
     currentDirectionLeftSide = 'backward'
-    GPIO.output(leftSideForward, 0)
-    GPIO.output(leftSideForwardReversePin , 1)
     clearSavedDirection()
+
 
 def right_side_backward(power):
     if Config.DEBUG_ENABLED:
-      logging.info('right_side_backward')
+        logging.info('right_side_backward')
     set_speed_right(power, 'backward')
     global currentDirectionRightSide
     currentDirectionRightSide = 'backward'
-    GPIO.output(rightSideForward, 0)
-    GPIO.output(rightSideForwardReversePin, 1)
     clearSavedDirection()
+
 
 def stopLeft():
     if Config.DEBUG_ENABLED:
-      logging.info('stopLeft')
+        logging.info('stopLeft')
     global currentDirectionLeftSide
     currentDirectionLeftSide = 'none'
-    leftSide.stop()
-    GPIO.output(leftSideForward , 0)
-    GPIO.output(leftSideForwardReversePin , 1)
-    # Since stop can be called by the poximity alert itself, it will not clear the saved direction
+    left_motor.stop()
+    # No need to clear saved direction here
+
 
 def stopRight():
     if Config.DEBUG_ENABLED:
-      logging.info('stopRight')
+        logging.info('stopRight')
     global currentDirectionRightSide
     currentDirectionRightSide = 'none'
-    rightSide.stop()
-    GPIO.output(rightSideForward, 0)
-    GPIO.output(rightSideForwardReversePin, 1)
-    # Since stop can be called by the poximity alert itself, it will not clear the saved direction
+    right_motor.stop()
+    # No need to clear saved direction here
 
 def saveDirection():
     global lastSavedDirectionLeftSide
@@ -259,5 +265,12 @@ def restoreDirection():
          logging.info('restoreDirection right backward')
 
    clearSavedDirection()
+   
+   
+# Periodic update function for smooth acceleration
+
+def update_motors_periodic():
+    left_motor.update_speed()
+    right_motor.update_speed()
    
    

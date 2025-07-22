@@ -52,7 +52,7 @@ async def thread_socket_server(sharedProperties):
                 sharedProperties.connection, client_address = sock.accept()
                 logging.info('connection from: %s', client_address)
                 sharedProperties.connection.setblocking(0)
-                ColorModule.turnOnBlueLed()
+                # ColorModule.turnOnBlueLed()
 
             except IOError as e:  # and here it is handeled
                 pass    
@@ -62,18 +62,27 @@ async def thread_socket_server(sharedProperties):
     
     if sharedProperties.connection is not None:
         sharedProperties.connection.close()
-        ColorModule.turnOffBlueLed()
+        # ColorModule.turnOffBlueLed()
         logging.info("Closed connection")
 
     GPIO.cleanup()
     logging.info("GPIO cleanup")
+    # Explicitly cleanup motors
+    try:
+        DirectionSystem.left_motor.cleanup()
+        DirectionSystem.right_motor.cleanup()
+        logging.info("Motor cleanup done")
+    except Exception as e:
+        logging.error(f"Motor cleanup error: {e}")
     sock.shutdown(socket.SHUT_RDWR)
     logging.info("Disconnected socket")
 
 async def thread_direction_controller(sharedProperties):
     data=""
     while not sharedProperties.endOfProgram:
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.005)
+        # Periodically update motors for smooth acceleration
+        DirectionSystem.update_motors_periodic()
         if sharedProperties.connection is not None:
             try:  
                 # In case someone blocked the way temporary we have to be able to detect there is no longer obstuction and keep going forward
@@ -111,7 +120,7 @@ async def thread_direction_controller(sharedProperties):
                 if not data:
                     sharedProperties.connection.close()
                     sharedProperties.connection = None
-                    ColorModule.turnOffBlueLed() # Turn off connection led
+                    # ColorModule.turnOffBlueLed() # Turn off connection led
                 
                 # Client is killing the instance
                 elif len(data) == 5 and data == "reset":

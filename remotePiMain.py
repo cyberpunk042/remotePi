@@ -80,7 +80,7 @@ async def thread_socket_server(sharedProperties):
 async def thread_direction_controller(sharedProperties):
     data=""
     while not sharedProperties.endOfProgram:
-        await asyncio.sleep(0.005)
+        await asyncio.sleep(0.001)
         # Periodically update motors for smooth acceleration
         DirectionSystem.update_motors_periodic()
         if sharedProperties.connection is not None:

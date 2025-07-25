@@ -1,0 +1,13 @@
+{
+  "host": "0.0.0.0",
+  "port": 9999,
+  "log_file": "remotePi.log",
+  "reset_trigger_pin": 21,
+  "health_host": "0.0.0.0",
+  "health_port": 8080,
+  "enable_health_server": false,
+  "min_free_mb": 100,
+  "log_cleanup_pattern": "remotePi.log*",
+  "disk_check_interval_sec": 600,
+  "disk_check_path": "/"
+} 

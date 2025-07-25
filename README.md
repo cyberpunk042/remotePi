@@ -1,9 +1,20 @@
-# RemotePi
-This is the server process to a homemade remote controlled car which is built with DC motors and sensors connected to a Raspberry Pi.
-The process runs with Python and is managed with SystemD service.
-The server can receive connection via local wifi or via ethernet.
+# remotePi
 
-![alt text](https://github.com/Eloverflow/remotePi/blob/master/robot1.jpg?raw=true)
-![alt text](https://github.com/Eloverflow/remotePi/blob/master/robot2.jpg?raw=true)
-![alt text](https://github.com/Eloverflow/remotePi/blob/master/robot3.jpg?raw=true)
-![alt text](https://github.com/Eloverflow/remotePi/blob/master/robot4.jpg?raw=true)
+A Raspberry Pi robot control server with async socket interface and GPIO motor control.
+
+## Features
+- Async TCP server for remote control
+- Motor and direction control via GPIO
+- Physical reset switch
+- Modular hardware abstraction
+
+## Usage
+1. Install dependencies: `pip install -r requirements.txt`
+2. Run: `python3 remotePiMain.py`
+3. Connect via TCP on port 9999 and send commands like `L:1`, `R:-1`, `reset`.
+
+## Configuration
+Edit constants in `remotePiMain.py` or use a config file.
+
+## SystemD
+See `Init_SystemD_Files/` for service setup.

@@ -25,6 +25,7 @@ log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
 log_handler = RotatingFileHandler(CONFIG.get('log_file', 'remotePi.log'), maxBytes=1024*1024, backupCount=3)
 log_handler.setFormatter(log_formatter)
 logger = logging.getLogger()
+logger.handlers.clear()  # Prevent duplicate logs
 logger.setLevel(logging.INFO)
 logger.addHandler(log_handler)
 

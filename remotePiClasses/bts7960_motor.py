@@ -23,10 +23,11 @@ import RPi.GPIO as GPIO
 
 
 class BTS7960Motor:
-    def __init__(self, pwm_right_pin: int, pwm_left_pin: int, freq_hz: int = 1000):
+    def __init__(self, pwm_right_pin: int, pwm_left_pin: int, freq_hz: int = 1000, min_duty: int = 30):
         self._pwm_pin_right = pwm_right_pin
         self._pwm_pin_left = pwm_left_pin
         self._freq = freq_hz
+        self.min_duty = min_duty
 
         self.current_speed: int = 0   # −100 ↔ 100   (duty-cycle %)
         self._target_speed: int = 0
@@ -36,15 +37,22 @@ class BTS7960Motor:
 
     # ---------- private helpers ---------- #
     def _write_speed(self, speed: int) -> None:
-        """Translate signed speed (−100..100) to two PWM duty-cycles."""
+        """Translate signed speed (−100..100) to two PWM duty-cycles with min duty for movement."""
         speed = max(-100, min(100, speed))  # clamp
+        min_duty = self.min_duty
 
-        if speed >= 0:
-            self._pwm_right.ChangeDutyCycle(speed)
-            self._pwm_left.ChangeDutyCycle(0)
-        else:
-            self._pwm_right.ChangeDutyCycle(0)
-            self._pwm_left.ChangeDutyCycle(-speed)
+        if speed == 0:
+            right_duty = 0
+            left_duty = 0
+        elif speed > 0:
+            right_duty = min_duty + (100 - min_duty) * (speed / 100)
+            left_duty = 0
+        else:  # speed < 0
+            right_duty = 0
+            left_duty = min_duty + (100 - min_duty) * (-speed / 100)
+
+        self._pwm_right.ChangeDutyCycle(right_duty)
+        self._pwm_left.ChangeDutyCycle(left_duty)
 
     # ---------- public API ---------- #
     def setup(self) -> None:

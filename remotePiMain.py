@@ -173,14 +173,21 @@ async def thread_socket_server(sharedProperties):
     logging.info("Disconnected socket")
 
 async def thread_direction_controller(sharedProperties):
-    data=""
+    data = ""
     while not sharedProperties.endOfProgram:
         await asyncio.sleep(0.001)
-        # Periodically update motors for smooth acceleration
-        DirectionSystem.update_motors_periodic()
+        # If using Arduino for motor control, you may not need update_motors_periodic
+        # DirectionSystem.update_motors_periodic()
         if sharedProperties.connection is not None:
-            try:  
-                data = sharedProperties.connection.recv(2048).decode('utf-8') # 2048 or 4096 ?
+            try:
+                raw = sharedProperties.connection.recv(2048)
+                if not raw:
+                    # Client disconnected
+                    logging.info("Client disconnected (recv returned empty)")
+                    sharedProperties.connection.close()
+                    sharedProperties.connection = None
+                    continue
+                data = raw.decode('utf-8')
                 if Config.DEBUG_ENABLED:
                     logging.info('raw data: %r', data)
                 # Split and process each line
@@ -203,7 +210,12 @@ async def thread_direction_controller(sharedProperties):
                         logging.info("Received reset command")
                         metrics['commands_processed'] += 1
                     # (other command handling as needed)
-            except IOError as e:  # and here it is handeled
+            except (ConnectionResetError, BrokenPipeError) as e:
+                logging.info(f"Client disconnected ({type(e).__name__})")
+                if sharedProperties.connection:
+                    sharedProperties.connection.close()
+                sharedProperties.connection = None
+            except IOError as e:
                 await asyncio.sleep(0.05)
             except Exception as e:
                 metrics['errors'] += 1

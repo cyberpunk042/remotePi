@@ -4,17 +4,15 @@ import socket
 import time
 import RPi.GPIO as GPIO
 import remotePiClasses.directionClass as DirectionSystem
-import remotePiClasses.distanceCaptorClass as DistanceCaptor
 import remotePiClasses.configClass as Config
-import socket
 import fcntl, os
 import logging
-import remotePiClasses.colorModuleClass as ColorModule
 import json
 from logging.handlers import RotatingFileHandler
 import shutil
 import glob
 import psutil
+import threading
 
 # --- Load configuration from config.json ---
 with open('config.json', 'r') as f:
@@ -234,12 +232,32 @@ async def thread_detect_reset_switch(sharedProperties):
         await asyncio.sleep(0.2)
 
 async def thread_screen_controller(sharedProperties):
-    while not sharedProperties.endOfProgram:
-    
-        #Connect socketTwo
-        
-        await asyncio.sleep(1)
-    #Disconnect socketTwo
+    enable_screen = CONFIG.get('enable_robot_face_screen', True)
+    if not enable_screen:
+        # Screen disabled via config
+        while not sharedProperties.endOfProgram:
+            await asyncio.sleep(1)
+        return
+
+    # Defer pygame to a background thread to avoid blocking asyncio
+    from remotePiClasses.robotFaceDisplay import RobotFaceDisplay
+
+    def _run_face():
+        face = RobotFaceDisplay(fullscreen=CONFIG.get('screen_fullscreen', True))
+        face.run(sharedProperties)
+
+    screen_thread = threading.Thread(target=_run_face, name="RobotFaceDisplayThread", daemon=True)
+    screen_thread.start()
+
+    try:
+        while not sharedProperties.endOfProgram:
+            await asyncio.sleep(0.2)
+    finally:
+        # Wait a moment for thread to exit gracefully
+        for _ in range(10):
+            if not screen_thread.is_alive():
+                break
+            await asyncio.sleep(0.1)
         
 async def thread_sound_controller(sharedProperties):
     while not sharedProperties.endOfProgram:
@@ -271,6 +289,7 @@ async def robotProgram():
         thread_socket_server(sharedProperties),
         thread_direction_controller(sharedProperties),
         thread_detect_reset_switch(sharedProperties),
+        thread_screen_controller(sharedProperties),
         disk_monitor_task(),
         metrics_logger_task()
     )

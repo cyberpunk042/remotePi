@@ -9,5 +9,7 @@
   "min_free_mb": 100,
   "log_cleanup_pattern": "remotePi.log*",
   "disk_check_interval_sec": 600,
-  "disk_check_path": "/"
+  "disk_check_path": "/",
+  "enable_robot_face_screen": true,
+  "screen_fullscreen": true
 } 

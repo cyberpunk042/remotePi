@@ -2,3 +2,4 @@ RPi.GPIO
 psutil
 # aiohttp is only required if you enable the health check server in config.json
 # To install: pip install aiohttp 
+pygame

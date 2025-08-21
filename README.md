@@ -9,9 +9,11 @@ A Raspberry Pi robot control server with async socket interface and GPIO motor c
 - Modular hardware abstraction
 
 ## Usage
-1. Install dependencies: `pip install -r requirements.txt`
-2. Run: `python3 remotePiMain.py`
-3. Connect via TCP on port 9999 and send commands like `L:1`, `R:-1`, `reset`.
+1. Create a virtual environment: `python3 -m venv .venv`
+2. Activate the virtual environment: `source .venv/bin/activate`
+3. Install dependencies: `pip install -r requirements.txt`
+4. Run: `python3 remotePiMain.py`
+5. Connect via TCP on port 9999 and send commands like `L:1`, `R:-1`, `reset`.
 
 ## Configuration
 Edit constants in `remotePiMain.py` or use a config file.

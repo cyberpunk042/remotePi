@@ -152,7 +152,7 @@ class CameraStreamer:
             return web.Response(body=content, content_type="image/jpeg")
 
         async def mjpeg_handler(_: "web.Request") -> "web.StreamResponse":
-            boundary = "--frame"
+            boundary = "frame"
             resp = web.StreamResponse(
                 status=200,
                 reason="OK",
@@ -169,7 +169,7 @@ class CameraStreamer:
                         await asyncio.sleep(0.02)
                         continue
                     part = (
-                        f"{boundary}\r\n"
+                        f"--{boundary}\r\n"
                         f"Content-Type: image/jpeg\r\n"
                         f"Content-Length: {len(frame)}\r\n\r\n"
                     ).encode("ascii") + frame + b"\r\n"

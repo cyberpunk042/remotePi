@@ -13,6 +13,10 @@ import shutil
 import glob
 import psutil
 import threading
+try:
+    from serial.tools import list_ports  # type: ignore
+except Exception:
+    list_ports = None
 
 # --- Load configuration from config.json ---
 with open('config.json', 'r') as f:
@@ -33,18 +37,54 @@ console_handler.setFormatter(log_formatter)
 logger.addHandler(console_handler)
 
 # --- Direction system (Arduino motor controller) ---
-try:
-    DIRECTION_SERIAL_PORT = CONFIG.get('motor_serial_port', '/dev/ttyACM0')
-    DIRECTION_BAUD = CONFIG.get('motor_baud', 115200)
-    direction = DirectionSystem(
-        port=DIRECTION_SERIAL_PORT,
-        baudrate=DIRECTION_BAUD,
-        debug=bool(Config.DEBUG_ENABLED),
-    )
-    logging.info(f"DirectionSystem initialized on {DIRECTION_SERIAL_PORT} @ {DIRECTION_BAUD} bps")
-except Exception:
-    logging.exception("Failed to initialize DirectionSystem")
-    direction = None
+def find_candidate_motor_ports():
+    candidates = []
+    # Configured port first, if provided
+    cfg_port = CONFIG.get('motor_serial_port')
+    if cfg_port:
+        candidates.append(cfg_port)
+    # Enumerate pyserial ports if available
+    if list_ports is not None:
+        try:
+            for p in list_ports.comports():
+                if getattr(p, 'device', None):
+                    candidates.append(p.device)
+        except Exception:
+            pass
+    # Add common device patterns
+    candidates.extend(sorted(glob.glob('/dev/serial/by-id/*')))
+    candidates.extend(sorted(glob.glob('/dev/ttyACM*')))
+    candidates.extend(sorted(glob.glob('/dev/ttyUSB*')))
+    candidates.extend(sorted(glob.glob('/dev/ttyAMA*')))
+
+    # Deduplicate while preserving order
+    unique = []
+    seen = set()
+    for c in candidates:
+        if c and c not in seen:
+            seen.add(c)
+            unique.append(c)
+    return unique
+
+DIRECTION_BAUD = CONFIG.get('motor_baud', 115200)
+direction = None
+DIRECTION_SERIAL_PORT = None
+for candidate_port in find_candidate_motor_ports():
+    try:
+        direction = DirectionSystem(
+            port=candidate_port,
+            baudrate=DIRECTION_BAUD,
+            debug=bool(Config.DEBUG_ENABLED),
+        )
+        DIRECTION_SERIAL_PORT = candidate_port
+        logging.info(f"DirectionSystem initialized on {candidate_port} @ {DIRECTION_BAUD} bps")
+        break
+    except Exception as e:
+        logging.warning(f"Failed to open motor controller on {candidate_port}: {e}")
+        direction = None
+        continue
+if direction is None:
+    logging.error("No usable serial port found for DirectionSystem. Set 'motor_serial_port' in config.json or connect the device.")
 
 # --- Metrics ---
 service_start_time = time.time()

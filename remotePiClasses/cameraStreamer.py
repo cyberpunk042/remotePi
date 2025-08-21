@@ -148,6 +148,7 @@ class CameraStreamer:
         async def snapshot_handler(_: "web.Request") -> "web.Response":
             content = self._get_latest_jpeg()
             if content is None:
+                logging.warning("Snapshot requested but no frame available yet")
                 return web.Response(status=503, text="No frame available")
             return web.Response(body=content, content_type="image/jpeg")
 
@@ -187,9 +188,14 @@ class CameraStreamer:
                     pass
             return resp
 
+        async def health_handler(_: "web.Request") -> "web.Response":
+            has_frame = self._get_latest_jpeg() is not None
+            return web.json_response({"status": "ok", "has_frame": has_frame})
+
         app = web.Application()
         app.router.add_get("/snapshot.jpg", snapshot_handler)
         app.router.add_get("/camera.mjpg", mjpeg_handler)
+        app.router.add_get("/health", health_handler)
         runner = web.AppRunner(app)
         await runner.setup()
         site = web.TCPSite(runner, host, port)

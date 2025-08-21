@@ -42,6 +42,16 @@ metrics = {
     'memory_mb': 0.0
 }
 
+# --- Camera stream config ---
+ENABLE_CAMERA_STREAM = CONFIG.get('enable_camera_stream', False)
+CAMERA_STREAM_HOST = CONFIG.get('camera_stream_host', '0.0.0.0')
+CAMERA_STREAM_PORT = CONFIG.get('camera_stream_port', 8081)
+CAMERA_INDEX = CONFIG.get('camera_index', 0)
+CAMERA_WIDTH = CONFIG.get('camera_width', 640)
+CAMERA_HEIGHT = CONFIG.get('camera_height', 480)
+CAMERA_FPS = CONFIG.get('camera_fps', 20)
+CAMERA_JPEG_QUALITY = CONFIG.get('camera_jpeg_quality', 80)
+
 # --- Uptime and memory usage logging ---
 async def metrics_logger_task():
     log_interval = CONFIG.get('metrics_log_interval_sec', 600)  # 10 minutes default
@@ -159,14 +169,6 @@ async def thread_socket_server(sharedProperties):
         logging.info("Closed connection")
     GPIO.cleanup()
     logging.info("GPIO cleanup")
-    # Explicitly cleanup motors
-    try:
-        DirectionSystem.left_motor.cleanup()
-        DirectionSystem.right_motor.cleanup()
-        logging.info("Motor cleanup done")
-    except Exception as e:
-        metrics['errors'] += 1
-        logging.error(f"Motor cleanup error: {e}")
     sock.shutdown(socket.SHUT_RDWR)
     logging.info("Disconnected socket")
 
@@ -285,14 +287,48 @@ async def robotProgram():
     if ENABLE_HEALTH_SERVER:
         await start_health_server()
     # Run all thread and wait for them to complete (passing in sharedProperties)
-    await asyncio.gather(
-        thread_socket_server(sharedProperties),
-        thread_direction_controller(sharedProperties),
-        thread_detect_reset_switch(sharedProperties),
-        thread_screen_controller(sharedProperties),
-        disk_monitor_task(),
-        metrics_logger_task()
-    )
+    camera_stream_task = None
+    if ENABLE_CAMERA_STREAM:
+        try:
+            from remotePiClasses.cameraStreamer import CameraStreamer
+            camera_streamer = CameraStreamer(
+                camera_index=CAMERA_INDEX,
+                frame_width=CAMERA_WIDTH,
+                frame_height=CAMERA_HEIGHT,
+                target_fps=CAMERA_FPS,
+                jpeg_quality=CAMERA_JPEG_QUALITY,
+                debug=bool(Config.DEBUG_ENABLED),
+            )
+            async def _start_camera():
+                try:
+                    await camera_streamer.start(CAMERA_STREAM_HOST, CAMERA_STREAM_PORT)
+                except Exception:
+                    logging.exception("Failed to start camera stream server")
+            camera_stream_task = asyncio.create_task(_start_camera())
+        except Exception:
+            logging.exception("CameraStreamer not available")
+            camera_stream_task = None
+
+    try:
+        await asyncio.gather(
+            thread_socket_server(sharedProperties),
+            thread_direction_controller(sharedProperties),
+            thread_detect_reset_switch(sharedProperties),
+            thread_screen_controller(sharedProperties),
+            disk_monitor_task(),
+            metrics_logger_task(),
+        )
+    finally:
+        if ENABLE_CAMERA_STREAM and 'camera_streamer' in locals():
+            try:
+                await camera_streamer.stop()
+            except Exception:
+                logging.exception("Error while stopping camera streamer")
+        if camera_stream_task is not None:
+            try:
+                camera_stream_task.cancel()
+            except Exception:
+                pass
     # Once both are complete print done
     logging.info("End of program")
 

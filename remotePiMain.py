@@ -3,7 +3,7 @@ import sys
 import socket
 import time
 import RPi.GPIO as GPIO
-import remotePiClasses.directionClass as DirectionSystem
+from remotePiClasses.directionClass import DirectionSystem
 import remotePiClasses.configClass as Config
 import fcntl, os
 import logging
@@ -31,6 +31,20 @@ logger.addHandler(log_handler)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(log_formatter)
 logger.addHandler(console_handler)
+
+# --- Direction system (Arduino motor controller) ---
+try:
+    DIRECTION_SERIAL_PORT = CONFIG.get('motor_serial_port', '/dev/ttyACM0')
+    DIRECTION_BAUD = CONFIG.get('motor_baud', 115200)
+    direction = DirectionSystem(
+        port=DIRECTION_SERIAL_PORT,
+        baudrate=DIRECTION_BAUD,
+        debug=bool(Config.DEBUG_ENABLED),
+    )
+    logging.info(f"DirectionSystem initialized on {DIRECTION_SERIAL_PORT} @ {DIRECTION_BAUD} bps")
+except Exception:
+    logging.exception("Failed to initialize DirectionSystem")
+    direction = None
 
 # --- Metrics ---
 service_start_time = time.time()
@@ -197,13 +211,19 @@ async def thread_direction_controller(sharedProperties):
                         continue
                     if line.startswith("L:"):
                         value = line[2:]
-                        DirectionSystem.set_speed_left(value)
-                        logging.info(f"Set left speed to {value}")
+                        if direction is not None:
+                            direction.set_speed_left(value)
+                            logging.info(f"Set left speed to {value}")
+                        else:
+                            logging.error("DirectionSystem unavailable; cannot set left speed")
                         metrics['commands_processed'] += 1
                     elif line.startswith("R:"):
                         value = line[2:]
-                        DirectionSystem.set_speed_right(value)
-                        logging.info(f"Set right speed to {value}")
+                        if direction is not None:
+                            direction.set_speed_right(value)
+                            logging.info(f"Set right speed to {value}")
+                        else:
+                            logging.error("DirectionSystem unavailable; cannot set right speed")
                         metrics['commands_processed'] += 1
                     elif line == "reset":
                         sharedProperties.endOfProgram = 1
@@ -319,6 +339,13 @@ async def robotProgram():
             metrics_logger_task(),
         )
     finally:
+        # Close DirectionSystem serial connection if initialized
+        try:
+            if 'direction' in globals() and direction is not None:
+                direction.close()
+                logging.info("DirectionSystem closed")
+        except Exception:
+            logging.exception("Error while closing DirectionSystem")
         if ENABLE_CAMERA_STREAM and 'camera_streamer' in locals():
             try:
                 await camera_streamer.stop()

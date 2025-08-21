@@ -42,6 +42,17 @@ class CameraStreamer:
         self._latest_jpeg_bytes: Optional[bytes] = None
         self._latest_lock = threading.Lock()
 
+        # Capture robustness settings
+        self._reopen_after_failures: int = 30
+        self._consecutive_read_failures: int = 0
+        self._warmup_frames: int = 5
+        self._warmup_remaining: int = 0
+        # Try primary index then fallbacks 0..3
+        self._candidate_indices = []
+        for idx in [self.camera_index, 0, 1, 2, 3]:
+            if idx not in self._candidate_indices and isinstance(idx, int) and idx >= 0:
+                self._candidate_indices.append(idx)
+
         # aiohttp server members
         self._aiohttp_web = None
         self._aiohttp_runner = None
@@ -63,23 +74,85 @@ class CameraStreamer:
         if not self._ensure_cv2():
             return False
         try:
-            self._cap = self._cv2.VideoCapture(self.camera_index)
-            if not self._cap or not self._cap.isOpened():
-                logging.error("Failed to open camera device index %s", self.camera_index)
-                return False
-            # Configure resolution and FPS
-            self._cap.set(self._cv2.CAP_PROP_FRAME_WIDTH, float(self.frame_width))
-            self._cap.set(self._cv2.CAP_PROP_FRAME_HEIGHT, float(self.frame_height))
-            self._cap.set(self._cv2.CAP_PROP_FPS, float(self.target_fps))
-            if self.debug:
-                logging.info(
-                    "Camera opened: index=%s, %sx%s @ %sfps",
-                    self.camera_index,
-                    self.frame_width,
-                    self.frame_height,
-                    self.target_fps,
-                )
-            return True
+            api_preference = getattr(self._cv2, "CAP_V4L2", 0)
+            last_error = None
+            for idx in self._candidate_indices:
+                try:
+                    logging.info("Attempting to open camera index %s", idx)
+                    # Open with V4L2 if available
+                    try:
+                        if api_preference:
+                            self._cap = self._cv2.VideoCapture(idx, api_preference)
+                        else:
+                            self._cap = self._cv2.VideoCapture(idx)
+                    except TypeError:
+                        self._cap = self._cv2.VideoCapture(idx)
+                    if not self._cap or not self._cap.isOpened():
+                        last_error = f"Failed to open device {idx}"
+                        self._close_capture()
+                        continue
+                    # Configure requested settings
+                    self._cap.set(self._cv2.CAP_PROP_FRAME_WIDTH, float(self.frame_width))
+                    self._cap.set(self._cv2.CAP_PROP_FRAME_HEIGHT, float(self.frame_height))
+                    self._cap.set(self._cv2.CAP_PROP_FPS, float(self.target_fps))
+                    if hasattr(self._cv2, "CAP_PROP_BUFFERSIZE"):
+                        try:
+                            self._cap.set(self._cv2.CAP_PROP_BUFFERSIZE, 2.0)
+                        except Exception:
+                            pass
+                    try:
+                        fourcc_mjpg = self._cv2.VideoWriter_fourcc(*"MJPG")
+                        self._cap.set(self._cv2.CAP_PROP_FOURCC, float(fourcc_mjpg))
+                    except Exception:
+                        pass
+                    # Test reads to validate device actually delivers frames
+                    test_ok = False
+                    for _ in range(5):
+                        ok, test_frame = self._cap.read()
+                        if ok and test_frame is not None:
+                            test_ok = True
+                            break
+                        time.sleep(0.05)
+                    if not test_ok:
+                        last_error = f"Device {idx} opened but did not produce frames"
+                        self._close_capture()
+                        continue
+                    # Log negotiated settings and accept this index
+                    try:
+                        negotiated_w = int(self._cap.get(self._cv2.CAP_PROP_FRAME_WIDTH) or 0)
+                        negotiated_h = int(self._cap.get(self._cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+                        negotiated_fps = float(self._cap.get(self._cv2.CAP_PROP_FPS) or 0.0)
+                        fourcc_val = int(self._cap.get(self._cv2.CAP_PROP_FOURCC) or 0)
+                        fourcc_str = "".join([chr((fourcc_val >> (8 * i)) & 0xFF) for i in range(4)])
+                        logging.info(
+                            "Camera ready: index=%s, %sx%s @ %.2ffps, fourcc=%s",
+                            idx,
+                            negotiated_w,
+                            negotiated_h,
+                            negotiated_fps,
+                            fourcc_str,
+                        )
+                    except Exception:
+                        pass
+                    self.camera_index = idx
+                    self._consecutive_read_failures = 0
+                    self._warmup_remaining = self._warmup_frames
+                    if self.debug:
+                        logging.info(
+                            "Requested camera settings: index=%s, %sx%s @ %sfps",
+                            self.camera_index,
+                            self.frame_width,
+                            self.frame_height,
+                            self.target_fps,
+                        )
+                    return True
+                except Exception as e:
+                    last_error = str(e)
+                    self._close_capture()
+                    continue
+            if last_error:
+                logging.error("Failed to initialize camera: %s", last_error)
+            return False
         except Exception:
             logging.exception("Exception while opening camera device")
             return False
@@ -105,9 +178,20 @@ class CameraStreamer:
                         continue
                 ok, frame = self._cap.read()
                 if not ok or frame is None:
+                    self._consecutive_read_failures += 1
                     if self.debug:
-                        logging.warning("Camera read failed; retrying")
+                        logging.warning("Camera read failed (%s)", self._consecutive_read_failures)
+                    if self._consecutive_read_failures >= self._reopen_after_failures:
+                        logging.warning("Too many camera read failures; reopening device")
+                        self._close_capture()
+                        time.sleep(0.2)
+                        continue
                     time.sleep(0.05)
+                    continue
+                self._consecutive_read_failures = 0
+                if self._warmup_remaining > 0:
+                    self._warmup_remaining -= 1
+                    time.sleep(0.01)
                     continue
                 ok, buf = self._cv2.imencode(".jpg", frame, encode_params)
                 if ok:
